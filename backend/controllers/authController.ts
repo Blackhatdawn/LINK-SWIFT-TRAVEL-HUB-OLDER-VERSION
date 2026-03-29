@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import User from '../models/User';
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../configEnv';
 
 // Generate JWT
 const generateToken = (id: string) => {
-  const secret = process.env.JWT_SECRET || 'linkswift_secret_key_2026';
-  return jwt.sign({ id }, secret, {
+  return jwt.sign({ id }, getJwtSecret(), {
     expiresIn: '30d',
   });
 };
@@ -16,13 +16,14 @@ const generateToken = (id: string) => {
 export const registerUser = async (req: Request, res: Response) => {
   try {
     const { name, email, password, phone } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
-    if (!name || !email || !password) {
+    if (!name || !normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: 'Please add all fields' });
     }
 
     // Check if user exists
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: normalizedEmail });
 
     if (userExists) {
       return res.status(400).json({ success: false, message: 'User already exists' });
@@ -31,7 +32,7 @@ export const registerUser = async (req: Request, res: Response) => {
     // Create user
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password,
       phone,
     });
@@ -62,9 +63,10 @@ export const registerUser = async (req: Request, res: Response) => {
 export const loginUser = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
     // Check for user email
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
 
     if (user && (await user.matchPassword(password))) {
       res.json({

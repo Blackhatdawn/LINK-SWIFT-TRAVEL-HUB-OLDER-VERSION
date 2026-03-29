@@ -51,6 +51,11 @@ export default function BrowseStays() {
       });
       const data = await res.json();
       if (data.success) {
+        const paymentUrl = data?.payment?.authorization_url;
+        if (paymentUrl) {
+          window.location.href = paymentUrl;
+          return;
+        }
         navigate('/dashboard');
       } else {
         alert(data.message || 'Booking failed');

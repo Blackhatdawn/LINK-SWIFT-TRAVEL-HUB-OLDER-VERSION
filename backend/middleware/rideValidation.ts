@@ -7,7 +7,7 @@ export const rideRateLimiter = (req: Request, res: Response, next: NextFunction)
   const userId = req.user?._id?.toString() || req.ip;
   const now = Date.now();
   const windowMs = 15 * 60 * 1000; // 15 minutes window
-  const maxAttempts = 5; // Max 5 bookings per 15 mins to prevent spam
+  const maxAttempts = 5;
 
   if (!bookingAttempts.has(userId)) {
     bookingAttempts.set(userId, { count: 1, resetTime: now + windowMs });
@@ -22,42 +22,87 @@ export const rideRateLimiter = (req: Request, res: Response, next: NextFunction)
 
   attempt.count++;
   if (attempt.count > maxAttempts) {
-    return res.status(429).json({ 
-      success: false, 
-      message: 'Rate limit exceeded. Please wait before scheduling another premium ride.' 
+    return res.status(429).json({
+      success: false,
+      message: 'Rate limit exceeded. Please wait before scheduling another premium ride.'
     });
   }
 
   next();
 };
 
-// Nigeria Bounding Box Validation (Lat: 4.0-14.0, Lng: 2.0-15.0)
-export const validateNigeriaLocation = (req: Request, res: Response, next: NextFunction) => {
-  const { pickup, dropoff } = req.body;
-  
-  const pickupAddress = typeof pickup === 'string' ? pickup : pickup?.address;
-  const dropoffAddress = typeof dropoff === 'string' ? dropoff : dropoff?.address;
+const inNigeriaBounds = (lat: number, lng: number) => lat >= 4 && lat <= 14 && lng >= 2 && lng <= 15;
 
-  if (!pickupAddress || !dropoffAddress) {
-    return res.status(400).json({ success: false, message: 'Pickup and dropoff locations are required.' });
+const geocodeCache = new Map<string, { lat: number; lng: number; countryCode?: string }>();
+
+const geocodeAddress = async (address: string) => {
+  const cacheKey = address.trim().toLowerCase();
+  if (geocodeCache.has(cacheKey)) return geocodeCache.get(cacheKey)!;
+
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'LinkSwift/1.0 (support@linkswift.app)',
+      'Accept-Language': 'en'
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error('Geocoding request failed');
   }
 
-  // Mock string-based validation for MVP (ensuring Nigerian context)
-  const validKeywords = ['lagos', 'abuja', 'port harcourt', 'ikeja', 'victoria island', 'lekki', 'ikoyi', 'airport', 'los', 'abv', 'kano', 'enugu'];
-  const pickupLower = pickupAddress.toLowerCase();
-  const dropoffLower = dropoffAddress.toLowerCase();
-
-  const isPickupValid = validKeywords.some(kw => pickupLower.includes(kw));
-  const isDropoffValid = validKeywords.some(kw => dropoffLower.includes(kw));
-
-  // In a production app, we would use Google Maps API to verify coordinates against the bounding box.
-  // For this luxury MVP, we enforce keywords if provided, or just pass if it looks like a valid address.
-  if (!isPickupValid && !isDropoffValid && pickupAddress.length < 5) {
-     return res.status(400).json({ 
-       success: false, 
-       message: 'LinkSwift Chauffeur services are currently exclusive to Nigeria. Please provide a valid Nigerian address.' 
-     });
+  const data = await res.json() as Array<{ lat: string; lon: string; display_name?: string }>;
+  if (!data.length) {
+    throw new Error('Address could not be geocoded');
   }
 
-  next();
+  const result = {
+    lat: Number(data[0].lat),
+    lng: Number(data[0].lon),
+    countryCode: data[0].display_name?.toLowerCase().includes('nigeria') ? 'ng' : undefined,
+  };
+
+  geocodeCache.set(cacheKey, result);
+  return result;
+};
+
+export const validateNigeriaLocation = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { pickup, dropoff } = req.body;
+
+    const pickupAddress = typeof pickup === 'string' ? pickup : pickup?.address;
+    const dropoffAddress = typeof dropoff === 'string' ? dropoff : dropoff?.address;
+
+    if (!pickupAddress || !dropoffAddress) {
+      return res.status(400).json({ success: false, message: 'Pickup and dropoff locations are required.' });
+    }
+
+    const pickupCoords = typeof pickup === 'object' ? pickup?.coordinates : undefined;
+    const dropoffCoords = typeof dropoff === 'object' ? dropoff?.coordinates : undefined;
+
+    const pickupGeo = pickupCoords?.lat && pickupCoords?.lng
+      ? { lat: Number(pickupCoords.lat), lng: Number(pickupCoords.lng), countryCode: 'ng' }
+      : await geocodeAddress(pickupAddress);
+
+    const dropoffGeo = dropoffCoords?.lat && dropoffCoords?.lng
+      ? { lat: Number(dropoffCoords.lat), lng: Number(dropoffCoords.lng), countryCode: 'ng' }
+      : await geocodeAddress(dropoffAddress);
+
+    const pickupValid = inNigeriaBounds(pickupGeo.lat, pickupGeo.lng) || pickupGeo.countryCode === 'ng';
+    const dropoffValid = inNigeriaBounds(dropoffGeo.lat, dropoffGeo.lng) || dropoffGeo.countryCode === 'ng';
+
+    if (!pickupValid || !dropoffValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'LinkSwift Chauffeur services are currently exclusive to Nigeria. Please provide valid Nigerian pickup and dropoff addresses.'
+      });
+    }
+
+    next();
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Unable to validate locations at this time.'
+    });
+  }
 };
