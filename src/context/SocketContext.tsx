@@ -13,20 +13,28 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Initialize socket connection
-    const newSocket = io();
+    if (!user?.token) {
+      setSocket(null);
+      return;
+    }
+
+    const newSocket = io({
+      auth: {
+        token: user.token,
+      },
+      transports: ['websocket', 'polling'],
+    });
+
     setSocket(newSocket);
 
-    if (user) {
-      // For development, we use a mock ID. In production, this would be user._id
-      const userId = '60d5ecb8b392d700153ee123'; 
-      newSocket.emit('join_user_room', userId);
-    }
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error.message);
+    });
 
     return () => {
       newSocket.disconnect();
     };
-  }, [user]);
+  }, [user?.token]);
 
   return (
     <SocketContext.Provider value={{ socket }}>

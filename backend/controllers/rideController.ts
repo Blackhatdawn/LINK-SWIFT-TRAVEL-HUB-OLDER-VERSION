@@ -21,6 +21,15 @@ export const createRideBooking = async (req: Request, res: Response) => {
   try {
     const { pickup, dropoff, date, carType, stayBundleId, specialRequests } = req.body;
 
+    if (!pickup || !dropoff || !date || !carType) {
+      return res.status(400).json({ success: false, message: 'pickup, dropoff, date and carType are required' });
+    }
+
+    const rideDate = new Date(date);
+    if (Number.isNaN(rideDate.getTime()) || rideDate.getTime() < Date.now()) {
+      return res.status(400).json({ success: false, message: 'Ride date must be a valid future date' });
+    }
+
     // 1. Calculate Fare
     const fare = calculateFare(carType);
 
@@ -36,7 +45,7 @@ export const createRideBooking = async (req: Request, res: Response) => {
       guest: req.user?._id,
       pickup: pickupData,
       dropoff: dropoffData,
-      date: new Date(date),
+      date: rideDate,
       carType,
       fare,
       status: 'Payment Required', // Requires Paystack confirmation
@@ -92,6 +101,11 @@ export const getMyRides = async (req: Request, res: Response) => {
 export const updateRideStatus = async (req: Request, res: Response) => {
   try {
     const { status, chauffeurId } = req.body;
+    const allowedStatuses = ['Pending', 'Payment Required', 'Confirmed', 'Chauffeur Assigned', 'En Route', 'Completed', 'Cancelled'];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid ride status' });
+    }
     const booking = await RideBooking.findById(req.params.id);
 
     if (!booking) {
