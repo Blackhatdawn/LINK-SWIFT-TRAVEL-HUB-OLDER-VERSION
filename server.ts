@@ -8,6 +8,7 @@ import stayRoutes from './backend/routes/stayRoutes';
 import notificationRoutes from './backend/routes/notificationRoutes';
 import rideRoutes from './backend/routes/rideRoutes';
 import authRoutes from './backend/routes/authRoutes';
+import paymentRoutes from './backend/routes/paymentRoutes';
 import { getAllowedOrigins, getMongoUri, getPort, isProduction } from './backend/configEnv';
 
 async function startServer() {
@@ -29,7 +30,12 @@ async function startServer() {
   app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = req.headers.origin;
 
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    const originAllowed =
+      !origin ||
+      (!isProduction && allowedOrigins.length === 0) ||
+      allowedOrigins.includes(origin);
+
+    if (originAllowed) {
       if (origin) {
         res.setHeader('Access-Control-Allow-Origin', origin);
       }
@@ -40,12 +46,13 @@ async function startServer() {
     }
 
     if (req.method === 'OPTIONS') {
-      return res.status(204).end();
+      return originAllowed ? res.status(204).end() : res.status(403).end();
     }
 
     return next();
   });
 
+  app.use('/api/payments/paystack/webhook', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '1mb' }));
 
   try {
@@ -69,6 +76,7 @@ async function startServer() {
   app.use('/api/stays', stayRoutes);
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/rides', rideRoutes);
+  app.use('/api/payments', paymentRoutes);
 
   app.use('/api/*', (_req, res) => {
     res.status(404).json({ success: false, message: 'API route not found' });

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import RideBooking from '../models/RideBooking';
 import { createNotification } from './notificationController';
 import crypto from 'crypto';
+import { initializePaystackTransaction } from '../services/paystack';
 
 // Helper: Calculate luxury fare based on car class
 const calculateFare = (carType: string): number => {
@@ -25,6 +26,10 @@ export const createRideBooking = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'pickup, dropoff, date and carType are required' });
     }
 
+
+    if (!req.user?.email) {
+      return res.status(400).json({ success: false, message: 'Authenticated user email is required for payments' });
+    }
     const rideDate = new Date(date);
     if (Number.isNaN(rideDate.getTime()) || rideDate.getTime() < Date.now()) {
       return res.status(400).json({ success: false, message: 'Ride date must be a valid future date' });
@@ -33,7 +38,7 @@ export const createRideBooking = async (req: Request, res: Response) => {
     // 1. Calculate Fare
     const fare = calculateFare(carType);
 
-    // 2. Generate Mock Paystack Reference
+    // 2. Generate Paystack Reference
     const paymentReference = `LS-RIDE-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
     // 3. Format addresses (handling both string and object inputs from frontend)
@@ -63,15 +68,27 @@ export const createRideBooking = async (req: Request, res: Response) => {
       booking._id.toString()
     );
 
-    // 6. Return Paystack initialization mock data
+    const paymentInit = await initializePaystackTransaction({
+      email: req.user?.email,
+      amount: fare * 100,
+      reference: paymentReference,
+      metadata: {
+        bookingId: booking._id.toString(),
+        bookingType: 'ride',
+        userId: req.user?._id?.toString(),
+      },
+    });
+
+    // 6. Return Paystack initialization data
     res.status(201).json({ 
       success: true, 
       data: booking,
       payment: {
         provider: 'Paystack',
         reference: paymentReference,
-        amount: fare * 100, // Kobo
-        authorization_url: `https://checkout.paystack.com/mock-url-${paymentReference}`
+        amount: fare * 100,
+        authorization_url: paymentInit.authorization_url,
+        access_code: paymentInit.access_code,
       }
     });
   } catch (error: any) {
