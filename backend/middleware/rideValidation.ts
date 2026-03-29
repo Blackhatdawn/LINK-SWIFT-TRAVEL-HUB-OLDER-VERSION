@@ -52,10 +52,10 @@ export const validateNigeriaLocation = (req: Request, res: Response, next: NextF
 
   // In a production app, we would use Google Maps API to verify coordinates against the bounding box.
   // For this luxury MVP, we enforce keywords if provided, or just pass if it looks like a valid address.
-  if (!isPickupValid && !isDropoffValid && pickupAddress.length < 5) {
+  if (!isPickupValid || !isDropoffValid) {
      return res.status(400).json({ 
        success: false, 
-       message: 'LinkSwift Chauffeur services are currently exclusive to Nigeria. Please provide a valid Nigerian address.' 
+       message: 'LinkSwift Chauffeur services are currently exclusive to Nigeria. Please provide valid Nigerian pickup and dropoff addresses.' 
      });
   }
 

@@ -18,9 +18,6 @@ const router = express.Router();
 router.route('/')
   .get(nigeriaOnly, getAllProperties);
 
-router.route('/:id')
-  .get(getPropertyById);
-
 // ==========================================
 // Protected Routes (Guests)
 // ==========================================
@@ -38,5 +35,8 @@ router.route('/host/properties')
 
 router.route('/host/properties/:id/availability')
   .put(protect, authorize('host', 'admin'), updateAvailability);
+
+router.route('/:id')
+  .get(getPropertyById);
 
 export default router;
