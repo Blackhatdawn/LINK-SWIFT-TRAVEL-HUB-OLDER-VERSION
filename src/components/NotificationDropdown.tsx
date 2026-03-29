@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Car, Home, MessageSquare, AlertCircle, Calendar } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 
 interface Notification {
   _id: string;
@@ -15,15 +16,17 @@ export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const { socket } = useSocket();
+  const { user } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
+    if (!user?.token) return;
+
     // Fetch initial notifications
-    // In production, this would use a real token
     fetch('/api/notifications', {
-      headers: { 'Authorization': 'Bearer mock-token' }
+      headers: { 'Authorization': `Bearer ${user.token}` }
     })
       .then(res => res.json())
       .then(data => {
@@ -41,7 +44,7 @@ export default function NotificationDropdown() {
     return () => {
       if (socket) socket.off('new_notification');
     };
-  }, [socket]);
+  }, [socket, user?.token]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -55,10 +58,12 @@ export default function NotificationDropdown() {
   }, []);
 
   const markAsRead = async (id: string) => {
+    if (!user?.token) return;
+
     try {
       await fetch(`/api/notifications/${id}/read`, {
         method: 'PUT',
-        headers: { 'Authorization': 'Bearer mock-token' }
+        headers: { 'Authorization': `Bearer ${user?.token}` }
       });
       
       if (id === 'all') {

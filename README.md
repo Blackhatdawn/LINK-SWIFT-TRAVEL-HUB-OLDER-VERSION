@@ -2,19 +2,50 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# LinkSwift Travel Hub
 
-This contains everything you need to run your app locally.
+This repository contains a full-stack Vite + React + Express application.
 
-View your app in AI Studio: https://ai.studio/apps/fca1669f-918a-4410-8f55-045c4511a8ce
+## Run locally
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js 20+
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+2. Create local env file:
+   ```bash
+   cp .env.example .env.local
+   ```
+3. Update required variables in `.env.local` (`JWT_SECRET` is mandatory, and `MONGO_URI` is required in production).
+4. Start dev server:
+   ```bash
+   npm run dev
+   ```
+
+## Production notes
+
+- `NODE_ENV=production` requires a valid `MONGO_URI`.
+- Set `PAYSTACK_SECRET_KEY` for payment initialization and webhook signature validation.
+- Configure `CLIENT_ORIGINS` to trusted domains only.
+- Build the frontend before running in production:
+  ```bash
+  npm run build
+  ```
+
+## Scripts
+
+- `npm run dev` — run backend + Vite middleware
+- `npm run build` — build frontend
+- `npm run preview` — preview built frontend
+- `npm run lint` — type-check (no emit)
+
+
+## Payments webhook
+
+Configure Paystack webhook URL to:
+
+```
+POST /api/payments/paystack/webhook
+```
