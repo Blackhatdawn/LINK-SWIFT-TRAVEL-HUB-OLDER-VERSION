@@ -9,6 +9,7 @@ import {
 } from '../controllers/stayController';
 import { protect, authorize } from '../middleware/authMiddleware';
 import { nigeriaOnly } from '../middleware/locationMiddleware';
+import { blockHighRiskRequests } from '../middleware/riskMiddleware';
 
 const router = express.Router();
 
@@ -18,14 +19,11 @@ const router = express.Router();
 router.route('/')
   .get(nigeriaOnly, getAllProperties);
 
-router.route('/:id')
-  .get(getPropertyById);
-
 // ==========================================
 // Protected Routes (Guests)
 // ==========================================
 router.route('/book')
-  .post(protect, createStayBooking);
+  .post(protect, blockHighRiskRequests, createStayBooking);
 
 router.route('/my-stays')
   .get(protect, getMyStays);
@@ -38,5 +36,8 @@ router.route('/host/properties')
 
 router.route('/host/properties/:id/availability')
   .put(protect, authorize('host', 'admin'), updateAvailability);
+
+router.route('/:id')
+  .get(getPropertyById);
 
 export default router;

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, ShieldCheck, Star, Clock } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
+import { useAuth } from '../context/AuthContext';
 
 // Mock registry of mini-apps
 const miniAppsRegistry: Record<string, any> = {
@@ -41,6 +42,7 @@ export default function MiniAppContainer() {
   const { appId } = useParams<{ appId: string }>();
   const navigate = useNavigate();
   const { balance, payForService } = useWallet();
+  const { user } = useAuth();
   
   const app = appId ? miniAppsRegistry[appId] : null;
   
@@ -99,8 +101,27 @@ export default function MiniAppContainer() {
         return;
       }
       
-      // Simulate order processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const items = Object.entries(cart).map(([id, quantity]) => {
+        const product = app.products.find((p: any) => p.id === id);
+        return {
+          productId: id,
+          name: product?.name || id,
+          price: product?.price || 0,
+          quantity,
+        };
+      });
+
+      const orderRes = await fetch('/api/miniapps/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user?.token}`
+        },
+        body: JSON.stringify({ appId: app.id, appName: app.name, items, total: cartTotal }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderData.success) throw new Error(orderData.message || 'Order creation failed');
+
       setCheckoutSuccess(true);
       
     } catch (error) {

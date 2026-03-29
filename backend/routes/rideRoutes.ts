@@ -1,7 +1,8 @@
 import express from 'express';
 import { createRideBooking, getMyRides, updateRideStatus } from '../controllers/rideController';
-import { protect } from '../middleware/authMiddleware';
+import { protect, authorize } from '../middleware/authMiddleware';
 import { rideRateLimiter, validateNigeriaLocation } from '../middleware/rideValidation';
+import { blockHighRiskRequests } from '../middleware/riskMiddleware';
 
 const router = express.Router();
 
@@ -9,7 +10,7 @@ const router = express.Router();
 // @desc    Create a new premium ride booking
 // @access  Private
 router.route('/book')
-  .post(protect, rideRateLimiter, validateNigeriaLocation, createRideBooking);
+  .post(protect, blockHighRiskRequests, rideRateLimiter, validateNigeriaLocation, createRideBooking);
 
 // @route   GET /api/rides/my-rides
 // @desc    Get logged-in user's ride bookings
@@ -21,6 +22,6 @@ router.route('/my-rides')
 // @desc    Update ride status (Assign chauffeur, complete ride)
 // @access  Private (Should be restricted to Admin/Chauffeur in production)
 router.route('/:id/status')
-  .put(protect, updateRideStatus);
+  .put(protect, authorize('chauffeur', 'admin'), updateRideStatus);
 
 export default router;

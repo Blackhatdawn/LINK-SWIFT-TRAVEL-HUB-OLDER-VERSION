@@ -45,6 +45,11 @@ export default function BookRide() {
       });
       const data = await res.json();
       if (data.success) {
+        const paymentUrl = data?.payment?.authorization_url;
+        if (paymentUrl) {
+          window.location.href = paymentUrl;
+          return;
+        }
         navigate('/dashboard');
       } else {
         alert(data.message || 'Failed to book ride');
