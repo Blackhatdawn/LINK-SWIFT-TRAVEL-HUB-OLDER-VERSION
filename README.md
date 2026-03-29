@@ -24,7 +24,7 @@ This repository contains a full-stack Vite + React + Express application.
 ## Production notes
 
 - `NODE_ENV=production` requires a valid `MONGO_URI`.
-- Set `PAYSTACK_SECRET_KEY` for payment initialization and webhook signature validation.
+- Set `PAYSTACK_SECRET_KEY` for payment initialization and webhook signature validation (required).
 - Configure `CLIENT_ORIGINS` to trusted domains only.
 - Build the frontend before running in production:
   ```bash

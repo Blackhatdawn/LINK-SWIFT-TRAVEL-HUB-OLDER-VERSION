@@ -6,6 +6,7 @@ import { createNotification } from './notificationController';
 
 interface PaystackEventData {
   reference?: string;
+  status?: string;
   metadata?: { bookingType?: 'ride' | 'stay' };
 }
 
@@ -23,7 +24,7 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
       data?: PaystackEventData;
     };
 
-    if (event.event !== 'charge.success') {
+    if (event.event !== 'charge.success' || event.data?.status !== 'success') {
       return res.status(200).json({ success: true, message: 'Event ignored' });
     }
 
@@ -33,13 +34,11 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
     }
 
     if (reference.startsWith('LS-RIDE-')) {
-      const ride = await RideBooking.findOneAndUpdate(
-        { paymentReference: reference },
-        { status: 'Confirmed' },
-        { new: true }
-      );
+      const ride = await RideBooking.findOne({ paymentReference: reference });
+      if (ride && ride.status !== 'Confirmed') {
+        ride.status = 'Confirmed';
+        await ride.save();
 
-      if (ride) {
         await createNotification(
           ride.guest.toString(),
           'Ride Payment Confirmed',
@@ -51,13 +50,11 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
     }
 
     if (reference.startsWith('LS-STAY-')) {
-      const stay = await StayBooking.findOneAndUpdate(
-        { paymentReference: reference },
-        { status: 'Confirmed' },
-        { new: true }
-      );
+      const stay = await StayBooking.findOne({ paymentReference: reference });
+      if (stay && stay.status !== 'Confirmed') {
+        stay.status = 'Confirmed';
+        await stay.save();
 
-      if (stay) {
         await createNotification(
           stay.guest.toString(),
           'Stay Payment Confirmed',
