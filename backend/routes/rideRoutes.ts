@@ -1,6 +1,6 @@
 import express from 'express';
 import { createRideBooking, getMyRides, updateRideStatus } from '../controllers/rideController';
-import { protect } from '../middleware/authMiddleware';
+import { protect, authorize } from '../middleware/authMiddleware';
 import { rideRateLimiter, validateNigeriaLocation } from '../middleware/rideValidation';
 
 const router = express.Router();
@@ -21,6 +21,6 @@ router.route('/my-rides')
 // @desc    Update ride status (Assign chauffeur, complete ride)
 // @access  Private (Should be restricted to Admin/Chauffeur in production)
 router.route('/:id/status')
-  .put(protect, updateRideStatus);
+  .put(protect, authorize('chauffeur', 'admin'), updateRideStatus);
 
 export default router;
