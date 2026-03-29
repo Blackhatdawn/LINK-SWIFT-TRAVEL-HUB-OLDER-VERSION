@@ -46,3 +46,26 @@ Configure Paystack webhook URL to:
 ```
 POST /api/payments/paystack/webhook
 ```
+
+
+## Core API surfaces
+
+- `GET /api/wallet`
+- `POST /api/wallet/topup`
+- `POST /api/wallet/transfer`
+- `POST /api/wallet/pay`
+- `POST /api/express/quote`
+- `POST /api/express/orders`
+- `GET /api/express/orders/my`
+- `POST /api/miniapps/orders`
+- `GET /api/miniapps/orders/my`
+
+### Payment return UI
+
+Set your Paystack callback URL to:
+
+```
+${APP_URL}/payment/return
+```
+
+The app polls `GET /api/payments/status/:reference` to display pending/success/failure states.

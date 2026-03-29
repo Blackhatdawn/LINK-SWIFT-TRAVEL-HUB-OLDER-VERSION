@@ -9,6 +9,7 @@ import {
 } from '../controllers/stayController';
 import { protect, authorize } from '../middleware/authMiddleware';
 import { nigeriaOnly } from '../middleware/locationMiddleware';
+import { blockHighRiskRequests } from '../middleware/riskMiddleware';
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.route('/')
 // Protected Routes (Guests)
 // ==========================================
 router.route('/book')
-  .post(protect, createStayBooking);
+  .post(protect, blockHighRiskRequests, createStayBooking);
 
 router.route('/my-stays')
   .get(protect, getMyStays);

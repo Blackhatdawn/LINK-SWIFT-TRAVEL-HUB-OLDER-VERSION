@@ -9,6 +9,9 @@ import notificationRoutes from './backend/routes/notificationRoutes';
 import rideRoutes from './backend/routes/rideRoutes';
 import authRoutes from './backend/routes/authRoutes';
 import paymentRoutes from './backend/routes/paymentRoutes';
+import miniAppRoutes from './backend/routes/miniAppRoutes';
+import expressRoutes from './backend/routes/expressRoutes';
+import walletRoutes from './backend/routes/walletRoutes';
 import { getAllowedOrigins, getMongoUri, getPort, isProduction } from './backend/configEnv';
 
 async function startServer() {
@@ -77,6 +80,9 @@ async function startServer() {
   app.use('/api/notifications', notificationRoutes);
   app.use('/api/rides', rideRoutes);
   app.use('/api/payments', paymentRoutes);
+  app.use('/api/wallet', walletRoutes);
+  app.use('/api/express', expressRoutes);
+  app.use('/api/miniapps', miniAppRoutes);
 
   app.use('/api/*', (_req, res) => {
     res.status(404).json({ success: false, message: 'API route not found' });

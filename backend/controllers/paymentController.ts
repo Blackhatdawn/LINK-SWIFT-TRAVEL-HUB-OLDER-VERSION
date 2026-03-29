@@ -1,10 +1,13 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import RideBooking from '../models/RideBooking';
 import StayBooking from '../models/StayBooking';
+import PaymentEvent from '../models/PaymentEvent';
 import { verifyPaystackWebhookSignature } from '../services/paystack';
 import { createNotification } from './notificationController';
 
 interface PaystackEventData {
+  id?: number;
   reference?: string;
   status?: string;
   metadata?: { bookingType?: 'ride' | 'stay' };
@@ -24,13 +27,33 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
       data?: PaystackEventData;
     };
 
-    if (event.event !== 'charge.success' || event.data?.status !== 'success') {
-      return res.status(200).json({ success: true, message: 'Event ignored' });
+    const reference = event.data?.reference;
+    const eventKey = event.data?.id
+      ? `paystack:${event.data.id}`
+      : `paystack:${crypto.createHash('sha256').update(rawBody).digest('hex')}`;
+
+    const existing = await PaymentEvent.findOne({ eventKey });
+    if (existing?.processed) {
+      return res.status(200).json({ success: true, message: 'Duplicate event ignored' });
     }
 
-    const reference = event.data?.reference;
-    if (!reference) {
-      return res.status(400).json({ success: false, message: 'Missing payment reference' });
+    await PaymentEvent.updateOne(
+      { eventKey },
+      {
+        $setOnInsert: {
+          provider: 'paystack',
+          eventKey,
+          reference,
+          eventType: event.event || 'unknown',
+          payload: event,
+        },
+      },
+      { upsert: true }
+    );
+
+    if (event.event !== 'charge.success' || event.data?.status !== 'success' || !reference) {
+      await PaymentEvent.updateOne({ eventKey }, { $set: { processed: true } });
+      return res.status(200).json({ success: true, message: 'Event ignored' });
     }
 
     if (reference.startsWith('LS-RIDE-')) {
@@ -65,8 +88,25 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
       }
     }
 
+    await PaymentEvent.updateOne({ eventKey }, { $set: { processed: true } });
+
     return res.status(200).json({ success: true });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: 'Webhook processing failed', error: error.message });
   }
+};
+
+export const getPaymentStatus = async (req: Request, res: Response) => {
+  const { reference } = req.params;
+  const ride = await RideBooking.findOne({ paymentReference: reference });
+  if (ride) {
+    return res.status(200).json({ success: true, data: { type: 'ride', status: ride.status, reference } });
+  }
+
+  const stay = await StayBooking.findOne({ paymentReference: reference });
+  if (stay) {
+    return res.status(200).json({ success: true, data: { type: 'stay', status: stay.status, reference } });
+  }
+
+  return res.status(404).json({ success: false, message: 'Payment reference not found' });
 };

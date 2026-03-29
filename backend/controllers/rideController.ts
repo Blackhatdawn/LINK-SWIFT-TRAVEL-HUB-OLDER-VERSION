@@ -72,6 +72,7 @@ export const createRideBooking = async (req: Request, res: Response) => {
       email: req.user?.email,
       amount: fare * 100,
       reference: paymentReference,
+      callback_url: process.env.APP_URL ? `${process.env.APP_URL}/payment/return?reference=${paymentReference}` : undefined,
       metadata: {
         bookingId: booking._id.toString(),
         bookingType: 'ride',

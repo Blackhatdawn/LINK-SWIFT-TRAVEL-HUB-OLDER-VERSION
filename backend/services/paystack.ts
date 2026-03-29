@@ -15,6 +15,7 @@ export const initializePaystackTransaction = async (params: {
   amount: number;
   reference: string;
   metadata?: Record<string, unknown>;
+  callback_url?: string;
 }) => {
   const key = getPaystackSecretKey();
 
@@ -29,6 +30,7 @@ export const initializePaystackTransaction = async (params: {
       amount: params.amount,
       reference: params.reference,
       metadata: params.metadata || {},
+      callback_url: params.callback_url,
     }),
   });
 
