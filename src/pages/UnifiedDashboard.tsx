@@ -25,6 +25,8 @@ export default function UnifiedDashboard() {
   const [isTransferring, setIsTransferring] = useState(false);
   const { addFunds, transferFunds } = useWallet();
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [recentRides, setRecentRides] = useState<any[]>([]);
+  const [recentStays, setRecentStays] = useState<any[]>([]);
 
   const handleAddFunds = async () => {
     const amount = parseInt(addFundsAmount.replace(/,/g, ''), 10);
@@ -76,36 +78,53 @@ export default function UnifiedDashboard() {
     navigate('/login');
   };
 
-  // Mock data for recent rides
-  const recentRides = [
-    {
-      id: 'R-1045',
-      date: 'Nov 15, 2026',
-      pickup: 'Victoria Island',
-      dropoff: 'Lekki Phase 1',
-      status: 'Pending',
-      fare: '₦30,000',
-      car: 'Range Rover Autobiography',
-    },
-    {
-      id: 'R-1042',
-      date: 'Oct 12, 2026',
-      pickup: 'Murtala Muhammed International Airport (LOS)',
-      dropoff: 'Eko Hotels & Suites, Victoria Island',
-      status: 'Completed',
-      fare: '₦45,000',
-      car: 'Mercedes-Benz S-Class',
-    },
-    {
-      id: 'R-0988',
-      date: 'Sep 28, 2026',
-      pickup: 'Lekki Phase 1',
-      dropoff: 'Ikoyi Club 1938',
-      status: 'Cancelled',
-      fare: '₦22,000',
-      car: 'Range Rover Autobiography',
-    }
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user?.token) return;
+
+      try {
+        const [ridesRes, staysRes] = await Promise.all([
+          fetch('/api/rides/my-rides', { headers: { Authorization: `Bearer ${user.token}` } }),
+          fetch('/api/stays/my-stays', { headers: { Authorization: `Bearer ${user.token}` } }),
+        ]);
+
+        const ridesJson = await ridesRes.json();
+        const staysJson = await staysRes.json();
+
+        if (ridesJson.success) {
+          setRecentRides((ridesJson.data || []).map((ride: any) => ({
+            id: ride._id,
+            date: new Date(ride.date).toLocaleDateString('en-NG', { month: 'short', day: 'numeric', year: 'numeric' }),
+            pickup: ride.pickup?.address || '-',
+            dropoff: ride.dropoff?.address || '-',
+            status: ride.status,
+            fare: `₦${Number(ride.fare || 0).toLocaleString('en-NG')}`,
+            car: ride.carType,
+          })));
+        }
+
+        if (staysJson.success) {
+          setRecentStays((staysJson.data || []).map((stay: any) => ({
+            id: stay._id,
+            property: stay.property?.title || 'Property',
+            dates: `${new Date(stay.checkIn).toLocaleDateString('en-NG')} - ${new Date(stay.checkOut).toLocaleDateString('en-NG')}`,
+            checkIn: stay.checkIn,
+            checkOut: stay.checkOut,
+            status: stay.status,
+            price: `₦${Number(stay.totalPrice || 0).toLocaleString('en-NG')}`,
+            guests: 1,
+            specialRequests: '-',
+            propertyAddress: stay.property?.location?.address || '-',
+            hostContact: '-',
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data', error);
+      }
+    };
+
+    void fetchData();
+  }, [user?.token]);
 
   // Helper function for ride status badge styling
   const getStatusBadgeClasses = (status: string) => {
@@ -121,35 +140,7 @@ export default function UnifiedDashboard() {
     }
   };
 
-  // Mock data for recent stays
-  const recentStays = [
-    {
-      id: 'S-4091',
-      property: 'The Ikoyi Penthouse',
-      dates: 'Nov 2 - Nov 5, 2026',
-      checkIn: '2026-11-02 14:00',
-      checkOut: '2026-11-05 11:00',
-      status: 'Confirmed',
-      price: '₦850,000',
-      guests: 2,
-      specialRequests: 'Late check-in requested. Champagne on arrival.',
-      propertyAddress: '12 Bourdillon Road, Ikoyi, Lagos',
-      hostContact: '+234 800 123 4567'
-    },
-    {
-      id: 'S-3920',
-      property: 'Banana Island Villa',
-      dates: 'Oct 15 - Oct 18, 2026',
-      checkIn: '2026-10-15 15:00',
-      checkOut: '2026-10-18 12:00',
-      status: 'Completed',
-      price: '₦1,200,000',
-      guests: 4,
-      specialRequests: 'Extra pillows, airport transfer required.',
-      propertyAddress: '101 Banana Island Road, Lagos',
-      hostContact: '+234 800 987 6543'
-    }
-  ];
+
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans selection:bg-amber-400/30">
@@ -591,7 +582,7 @@ export default function UnifiedDashboard() {
               <h3 className="text-lg font-medium text-white mb-4">Recent Transactions</h3>
               <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden">
                 {transactions.length > 0 ? transactions.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between p-4 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-900 transition-colors">
+                  <div key={tx.id || tx._id} className="flex items-center justify-between p-4 border-b border-zinc-800/50 last:border-0 hover:bg-zinc-900 transition-colors">
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'credit' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-400'}`}>
                         {tx.type === 'credit' ? <ChevronDown className="w-5 h-5 rotate-180" /> : <Car className="w-5 h-5" />}
@@ -599,7 +590,7 @@ export default function UnifiedDashboard() {
                       <div>
                         <p className="text-sm font-medium text-white">{tx.title}</p>
                         <p className="text-xs text-zinc-500">
-                          {new Date(tx.date).toLocaleDateString('en-NG', { 
+                          {new Date(tx.date || tx.createdAt || Date.now()).toLocaleDateString('en-NG', { 
                             month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
                           })}
                         </p>

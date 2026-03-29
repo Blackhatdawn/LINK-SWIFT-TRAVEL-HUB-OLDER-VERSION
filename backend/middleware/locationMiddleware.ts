@@ -1,13 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
+import { isProduction } from '../configEnv';
 
 export const nigeriaOnly = (req: Request, res: Response, next: NextFunction) => {
-  // Mock location middleware for Nigeria bounding box
-  // In production, this would check IP geolocation or request headers
-  const isNigeria = true; // Mocked to true for development
-  
-  if (!isNigeria) {
+  const countryHeaders = [
+    req.headers['cf-ipcountry'],
+    req.headers['x-country-code'],
+    req.headers['x-vercel-ip-country'],
+  ];
+
+  const country = countryHeaders.find(Boolean)?.toString().trim().toUpperCase();
+
+  // In non-production we allow traffic when country headers are absent to avoid local-dev friction.
+  if (!isProduction && !country) {
+    return next();
+  }
+
+  if (country !== 'NG') {
     return res.status(403).json({ success: false, message: 'Service is only available in Nigeria' });
   }
-  
+
   next();
 };

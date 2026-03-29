@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, MapPin, Navigation, Clock, Shield, CheckCircle2, Car } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function BookExpress() {
   const navigate = useNavigate();
   const { balance, payForService } = useWallet();
+  const { user } = useAuth();
   
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
@@ -18,20 +20,26 @@ export default function BookExpress() {
   const [isBooking, setIsBooking] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
 
-  const calculatePrice = () => {
+  const calculatePrice = async () => {
     if (!pickup || !dropoff) return;
-    
+
     setIsCalculating(true);
-    // Simulate API call to calculate price based on distance and package type
-    setTimeout(() => {
-      let basePrice = 3500;
-      if (packageType === 'large') basePrice += 2000;
-      if (weight === '5-15kg') basePrice += 1500;
-      if (weight === '15kg+') basePrice += 3000;
-      
-      setPrice(basePrice);
+    try {
+      const res = await fetch('/api/express/quote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user?.token}`
+        },
+        body: JSON.stringify({ pickup, dropoff, packageType, weight }),
+      });
+      const data = await res.json();
+      if (data.success) setPrice(data.data.price);
+    } catch (error) {
+      console.error('Quote failed', error);
+    } finally {
       setIsCalculating(false);
-    }, 1500);
+    }
   };
 
   const handleBook = async () => {
@@ -40,17 +48,19 @@ export default function BookExpress() {
     setIsBooking(true);
     
     try {
-      // Attempt to pay from wallet
-      const paymentSuccess = await payForService(price, 'express');
-      
-      if (!paymentSuccess) {
-        alert('Insufficient wallet balance. Please add funds.');
-        setIsBooking(false);
-        return;
-      }
-      
-      // Simulate booking API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const orderRes = await fetch('/api/express/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user?.token}`
+        },
+        body: JSON.stringify({ pickup, dropoff, packageType, weight, instructions, price }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderData.success) throw new Error(orderData.message || 'Order creation failed');
+
+      const paid = await payForService(price, 'express', { orderId: orderData.data._id, reference: orderData.data.reference });
+      if (!paid) throw new Error('Insufficient wallet balance. Please add funds.');
       setBookingSuccess(true);
       
       setTimeout(() => {

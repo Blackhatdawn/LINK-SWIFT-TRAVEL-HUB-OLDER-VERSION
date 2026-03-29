@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { WalletProvider } from './context/WalletContext';
@@ -15,6 +15,7 @@ import MiniAppContainer from './pages/MiniAppContainer';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
+import PaymentReturn from './pages/PaymentReturn';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/browse-stays" element={<BrowseStays />} />
               <Route path="/book-express" element={<BookExpress />} />
               <Route path="/miniapp/:appId" element={<MiniAppContainer />} />
+              <Route path="/payment/return" element={<PaymentReturn />} />
               {/* Placeholder routes for links in the dashboard */}
               <Route path="/rides" element={<div className="p-8 text-white">All Rides Page</div>} />
               <Route path="/stays" element={<div className="p-8 text-white">All Stays Page</div>} />

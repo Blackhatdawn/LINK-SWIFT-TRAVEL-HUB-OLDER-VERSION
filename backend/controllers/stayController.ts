@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import Property from '../models/Property';
 import StayBooking from '../models/StayBooking';
 import { createNotification } from './notificationController';
+import crypto from 'crypto';
+import { initializePaystackTransaction } from '../services/paystack';
 
 // @desc    Get all available properties (with search and Nigeria bounding box filter)
 // @route   GET /api/stays
@@ -61,8 +63,16 @@ export const getPropertyById = async (req: Request, res: Response) => {
 // @access  Private
 export const createStayBooking = async (req: Request, res: Response) => {
   try {
-    const { propertyId, checkIn, checkOut, chauffeurBundleIncluded, paymentReference } = req.body;
+    const { propertyId, checkIn, checkOut, chauffeurBundleIncluded } = req.body;
 
+    if (!propertyId || !checkIn || !checkOut) {
+      return res.status(400).json({ success: false, message: 'propertyId, checkIn and checkOut are required' });
+    }
+
+
+    if (!req.user?.email) {
+      return res.status(400).json({ success: false, message: 'Authenticated user email is required for payments' });
+    }
     const property = await Property.findById(propertyId);
     if (!property) {
       return res.status(404).json({ success: false, message: 'Property not found' });
@@ -75,6 +85,10 @@ export const createStayBooking = async (req: Request, res: Response) => {
     // Calculate total nights and price
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
+
+    if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {
+      return res.status(400).json({ success: false, message: 'Invalid check-in/check-out dates' });
+    }
     const timeDifference = checkOutDate.getTime() - checkInDate.getTime();
     const nights = Math.max(1, Math.ceil(timeDifference / (1000 * 3600 * 24)));
     
@@ -84,6 +98,8 @@ export const createStayBooking = async (req: Request, res: Response) => {
     if (chauffeurBundleIncluded) {
       totalPrice += 50000; 
     }
+
+    const paymentReference = `LS-STAY-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
     const booking = await StayBooking.create({
       guest: req.user?._id,
@@ -105,7 +121,29 @@ export const createStayBooking = async (req: Request, res: Response) => {
       booking._id.toString()
     );
 
-    res.status(201).json({ success: true, data: booking });
+    const paymentInit = await initializePaystackTransaction({
+      email: req.user?.email,
+      amount: totalPrice * 100,
+      reference: paymentReference,
+      callback_url: process.env.APP_URL ? `${process.env.APP_URL}/payment/return?reference=${paymentReference}` : undefined,
+      metadata: {
+        bookingId: booking._id.toString(),
+        bookingType: 'stay',
+        userId: req.user?._id?.toString(),
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: booking,
+      payment: {
+        provider: 'Paystack',
+        reference: paymentReference,
+        amount: totalPrice * 100,
+        authorization_url: paymentInit.authorization_url,
+        access_code: paymentInit.access_code,
+      },
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
