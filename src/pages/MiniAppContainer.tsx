@@ -1,54 +1,41 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, ShieldCheck, Star, Clock } from 'lucide-react';
 import { useWallet } from '../context/WalletContext';
 import { useAuth } from '../context/AuthContext';
-
-// Mock registry of mini-apps
-const miniAppsRegistry: Record<string, any> = {
-  pharmacy: {
-    id: 'pharmacy',
-    name: 'HealthPlus Pharmacy',
-    category: 'Health & Wellness',
-    rating: 4.8,
-    deliveryTime: '30-45 mins',
-    description: 'Order prescription medications and over-the-counter drugs with fast delivery.',
-    theme: 'blue',
-    products: [
-      { id: 'p1', name: 'Paracetamol 500mg', price: 1500, image: '💊' },
-      { id: 'p2', name: 'Vitamin C 1000mg', price: 3500, image: '🍊' },
-      { id: 'p3', name: 'First Aid Kit', price: 12000, image: '🚑' },
-      { id: 'p4', name: 'Cough Syrup', price: 2800, image: '🧪' },
-    ]
-  },
-  events: {
-    id: 'events',
-    name: 'NaijaTix',
-    category: 'Entertainment',
-    rating: 4.9,
-    deliveryTime: 'Instant E-Ticket',
-    description: 'Discover and book tickets for the hottest concerts, comedy shows, and events.',
-    theme: 'purple',
-    products: [
-      { id: 'e1', name: 'Afrobeats Festival 2026', price: 50000, image: '🎵' },
-      { id: 'e2', name: 'Lagos Comedy Night', price: 15000, image: '🎤' },
-      { id: 'e3', name: 'Tech Summit VIP', price: 100000, image: '💻' },
-      { id: 'e4', name: 'Art Exhibition Entry', price: 5000, image: '🎨' },
-    ]
-  }
-};
 
 export default function MiniAppContainer() {
   const { appId } = useParams<{ appId: string }>();
   const navigate = useNavigate();
   const { balance, payForService } = useWallet();
   const { user } = useAuth();
-  
-  const app = appId ? miniAppsRegistry[appId] : null;
-  
+
+  const [app, setApp] = useState<any | null>(null);
+  const [loadingApp, setLoadingApp] = useState(true);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!appId) return;
+      try {
+        const res = await fetch(`/api/miniapps/catalog/${appId}`);
+        const data = await res.json();
+        if (data.success) setApp(data.data);
+      } catch (error) {
+        console.error('Failed to fetch mini-app', error);
+      } finally {
+        setLoadingApp(false);
+      }
+    };
+
+    void load();
+  }, [appId]);
+
+  if (loadingApp) {
+    return <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">Loading mini-app...</div>;
+  }
 
   if (!app) {
     return (
@@ -89,18 +76,10 @@ export default function MiniAppContainer() {
 
   const handleCheckout = async () => {
     if (cartTotal === 0) return;
-    
+
     setIsCheckingOut(true);
-    
+
     try {
-      const paymentSuccess = await payForService(cartTotal, `miniapp-${app.id}`);
-      
-      if (!paymentSuccess) {
-        alert('Insufficient wallet balance. Please add funds.');
-        setIsCheckingOut(false);
-        return;
-      }
-      
       const items = Object.entries(cart).map(([id, quantity]) => {
         const product = app.products.find((p: any) => p.id === id);
         return {
@@ -122,8 +101,20 @@ export default function MiniAppContainer() {
       const orderData = await orderRes.json();
       if (!orderData.success) throw new Error(orderData.message || 'Order creation failed');
 
+      const paymentSuccess = await payForService(cartTotal, 'miniapp', {
+        orderId: orderData.data._id,
+        reference: orderData.data.reference,
+        appId: app.id,
+      });
+
+      if (!paymentSuccess) {
+        alert('Insufficient wallet balance. Please add funds.');
+        setIsCheckingOut(false);
+        return;
+      }
+
       setCheckoutSuccess(true);
-      
+
     } catch (error) {
       console.error('Checkout failed', error);
       alert('Checkout failed. Please try again.');
@@ -150,7 +141,7 @@ export default function MiniAppContainer() {
           <p className="text-zinc-400 mb-8">
             Your payment of ₦{cartTotal.toLocaleString('en-NG')} was successful. {app.name} is processing your request.
           </p>
-          <button 
+          <button
             onClick={() => navigate('/dashboard')}
             className="w-full py-4 bg-zinc-800 text-white rounded-xl font-medium hover:bg-zinc-700 transition-colors"
           >
@@ -167,7 +158,7 @@ export default function MiniAppContainer() {
       <header className="sticky top-0 z-50 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => navigate('/dashboard')}
               className="p-2 -ml-2 rounded-full hover:bg-zinc-900 transition-colors"
             >
@@ -183,117 +174,85 @@ export default function MiniAppContainer() {
               <p className="text-xs text-zinc-500">{app.category}</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-4 text-sm text-zinc-400">
-              <span className="flex items-center gap-1"><Star className="w-4 h-4 text-amber-400" /> {app.rating}</span>
-              <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {app.deliveryTime}</span>
-            </div>
-            <div className="text-sm font-medium bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800">
-              Wallet: <span className="text-white">₦{balance.toLocaleString('en-NG')}</span>
-            </div>
+          <div className="text-sm text-zinc-400">
+            Wallet: <span className="text-white font-medium">₦{balance.toLocaleString('en-NG')}</span>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* App Banner */}
-        <div className={`rounded-2xl p-8 mb-8 border ${themeColor.split(' ')[1]} ${themeColor.split(' ')[2]}`}>
-          <h2 className={`text-3xl font-light mb-2 ${themeColor.split(' ')[0]}`}>{app.name}</h2>
-          <p className="text-zinc-300 max-w-xl">{app.description}</p>
+        <div className="mb-8 p-6 bg-zinc-900 border border-zinc-800 rounded-2xl">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${themeColor}`}>{app.category}</span>
+            <span className="flex items-center gap-1 text-sm text-zinc-400"><Star className="w-4 h-4 text-amber-400" /> {app.rating}</span>
+            <span className="flex items-center gap-1 text-sm text-zinc-400"><Clock className="w-4 h-4" /> {app.deliveryTime}</span>
+            <a href="#" className="ml-auto flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300">
+              Visit Website <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+          <p className="text-zinc-300">{app.description}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Products Grid */}
           <div className="lg:col-span-2">
-            <h3 className="text-xl font-medium text-white mb-6">Available Items</h3>
+            <h2 className="text-xl font-medium text-white mb-4">Available Products</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {app.products.map((product: any) => (
-                <div key={product.id} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 flex items-center gap-4 hover:bg-zinc-900 transition-colors">
-                  <div className="w-16 h-16 rounded-lg bg-zinc-800 flex items-center justify-center text-3xl shrink-0">
-                    {product.image}
+                <div key={product.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-2xl mb-2">{product.image}</p>
+                    <h3 className="text-white font-medium">{product.name}</h3>
+                    <p className="text-amber-400 font-medium mt-1">₦{product.price.toLocaleString('en-NG')}</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-white font-medium truncate">{product.name}</h4>
-                    <p className="text-amber-400 text-sm font-medium">₦{product.price.toLocaleString('en-NG')}</p>
+                  <div className="flex items-center gap-2">
+                    {cart[product.id] ? (
+                      <>
+                        <button onClick={() => removeFromCart(product.id)} className="w-8 h-8 rounded bg-zinc-800 text-white">-</button>
+                        <span className="w-8 text-center">{cart[product.id]}</span>
+                        <button onClick={() => addToCart(product.id)} className="w-8 h-8 rounded bg-amber-400 text-zinc-950">+</button>
+                      </>
+                    ) : (
+                      <button onClick={() => addToCart(product.id)} className="px-3 py-1.5 rounded bg-amber-400 text-zinc-950 text-sm font-medium">Add</button>
+                    )}
                   </div>
-                  <button 
-                    onClick={() => addToCart(product.id)}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center border transition-colors shrink-0 ${themeColor}`}
-                  >
-                    +
-                  </button>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Cart Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 sticky top-24">
-              <h3 className="text-lg font-medium text-white mb-4">Your Order</h3>
-              
-              {Object.keys(cart).length === 0 ? (
-                <div className="text-center py-8 text-zinc-500">
-                  <p>Your cart is empty</p>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-                    {Object.entries(cart).map(([id, quantity]) => {
-                      const product = app.products.find((p: any) => p.id === id);
-                      if (!product) return null;
-                      
-                      return (
-                        <div key={id} className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0 pr-4">
-                            <p className="text-sm text-white truncate">{product.name}</p>
-                            <p className="text-xs text-zinc-500">₦{product.price.toLocaleString('en-NG')} x {quantity}</p>
-                          </div>
-                          <div className="flex items-center gap-3 bg-zinc-950 rounded-lg p-1 border border-zinc-800">
-                            <button 
-                              onClick={() => removeFromCart(id)}
-                              className="w-6 h-6 rounded flex items-center justify-center bg-zinc-800 text-zinc-300 hover:text-white"
-                            >-</button>
-                            <span className="text-sm font-medium w-4 text-center">{quantity}</span>
-                            <button 
-                              onClick={() => addToCart(id)}
-                              className="w-6 h-6 rounded flex items-center justify-center bg-zinc-800 text-zinc-300 hover:text-white"
-                            >+</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  <div className="border-t border-zinc-800 pt-4 mb-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-zinc-400">Subtotal</span>
-                      <span className="text-white">₦{cartTotal.toLocaleString('en-NG')}</span>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 h-fit sticky top-24">
+            <h2 className="text-lg font-medium text-white mb-4">Your Cart</h2>
+            {Object.keys(cart).length === 0 ? (
+              <p className="text-zinc-500 text-sm">No items yet.</p>
+            ) : (
+              <div className="space-y-3 mb-6">
+                {Object.entries(cart).map(([id, qty]) => {
+                  const quantity = Number(qty);
+                  const product = app.products.find((p: any) => p.id === id);
+                  return (
+                    <div key={id} className="flex justify-between text-sm">
+                      <span className="text-zinc-300">{product?.name} x {quantity}</span>
+                      <span className="text-white">₦{((product?.price || 0) * quantity).toLocaleString('en-NG')}</span>
                     </div>
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-zinc-400">Service Fee</span>
-                      <span className="text-white">₦500</span>
-                    </div>
-                    <div className="flex justify-between items-center text-lg font-medium">
-                      <span className="text-white">Total</span>
-                      <span className="text-amber-400">₦{(cartTotal + 500).toLocaleString('en-NG')}</span>
-                    </div>
-                  </div>
-                  
-                  <button 
-                    onClick={handleCheckout}
-                    disabled={isCheckingOut}
-                    className={`w-full py-4 rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center ${themeColor.split(' ')[2]} ${themeColor.split(' ')[0]} border ${themeColor.split(' ')[1]}`}
-                  >
-                    {isCheckingOut ? (
-                      <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      'Pay with Wallet'
-                    )}
-                  </button>
-                </>
-              )}
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="border-t border-zinc-800 pt-4 mb-6">
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-400">Total</span>
+                <span className="text-xl font-semibold text-white">₦{cartTotal.toLocaleString('en-NG')}</span>
+              </div>
             </div>
+
+            <button
+              onClick={handleCheckout}
+              disabled={cartTotal === 0 || isCheckingOut}
+              className="w-full py-3 rounded-xl bg-amber-400 text-zinc-950 font-medium hover:bg-amber-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isCheckingOut ? 'Processing...' : 'Checkout'}
+            </button>
           </div>
         </div>
       </main>

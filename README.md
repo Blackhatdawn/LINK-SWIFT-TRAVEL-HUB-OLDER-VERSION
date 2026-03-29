@@ -57,6 +57,8 @@ POST /api/payments/paystack/webhook
 - `POST /api/express/quote`
 - `POST /api/express/orders`
 - `GET /api/express/orders/my`
+- `GET /api/miniapps/catalog`
+- `GET /api/miniapps/catalog/:appId`
 - `POST /api/miniapps/orders`
 - `GET /api/miniapps/orders/my`
 

@@ -48,15 +48,6 @@ export default function BookExpress() {
     setIsBooking(true);
     
     try {
-      // Attempt to pay from wallet
-      const paymentSuccess = await payForService(price, 'express');
-      
-      if (!paymentSuccess) {
-        alert('Insufficient wallet balance. Please add funds.');
-        setIsBooking(false);
-        return;
-      }
-      
       const orderRes = await fetch('/api/express/orders', {
         method: 'POST',
         headers: {

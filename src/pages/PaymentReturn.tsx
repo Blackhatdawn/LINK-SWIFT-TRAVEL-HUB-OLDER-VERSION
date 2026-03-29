@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function PaymentReturn() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const reference = params.get('reference') || '';
+  const { user } = useAuth();
   const [status, setStatus] = useState<'pending' | 'success' | 'failed'>('pending');
   const [message, setMessage] = useState('Verifying your payment...');
 
@@ -21,7 +23,7 @@ export default function PaymentReturn() {
       try {
         const res = await fetch(`/api/payments/status/${reference}`, {
           headers: {
-            Authorization: `Bearer ${JSON.parse(localStorage.getItem('linkswift_user') || '{}')?.token || ''}`,
+            Authorization: `Bearer ${user?.token || ''}`,
           },
         });
 
@@ -58,7 +60,7 @@ export default function PaymentReturn() {
     void check();
 
     return () => clearTimeout(timer);
-  }, [reference]);
+  }, [reference, user?.token]);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6">

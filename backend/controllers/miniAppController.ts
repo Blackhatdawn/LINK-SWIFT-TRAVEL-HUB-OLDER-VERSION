@@ -1,6 +1,19 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import MiniAppOrder from '../models/MiniAppOrder';
+import { miniAppCatalog } from '../data/miniAppCatalog';
+
+export const getMiniAppCatalog = async (_req: Request, res: Response) => {
+  return res.status(200).json({ success: true, data: miniAppCatalog });
+};
+
+export const getMiniAppById = async (req: Request, res: Response) => {
+  const app = miniAppCatalog.find((item) => item.id === req.params.appId);
+  if (!app) {
+    return res.status(404).json({ success: false, message: 'Mini-app not found' });
+  }
+  return res.status(200).json({ success: true, data: app });
+};
 
 export const createMiniAppOrder = async (req: Request, res: Response) => {
   const { appId, appName, items, total } = req.body;
