@@ -3,34 +3,34 @@ import crypto from 'crypto';
 import RideBooking from '../models/RideBooking';
 import StayBooking from '../models/StayBooking';
 import PaymentEvent from '../models/PaymentEvent';
-import { verifyPaystackWebhookSignature } from '../services/paystack';
+import { verifyIvoryPayWebhookSignature } from '../services/ivorypay';
 import { createNotification } from './notificationController';
 
-interface PaystackEventData {
-  id?: number;
+interface IvoryPayEventData {
+  id?: string;
   reference?: string;
   status?: string;
   metadata?: { bookingType?: 'ride' | 'stay' };
 }
 
-export const handlePaystackWebhook = async (req: Request, res: Response) => {
+export const handleIvoryPayWebhook = async (req: Request, res: Response) => {
   try {
-    const signature = req.headers['x-paystack-signature']?.toString();
+    const signature = req.headers['x-ivorypay-signature']?.toString();
     const rawBody = req.body as Buffer;
 
-    if (!verifyPaystackWebhookSignature(rawBody, signature)) {
-      return res.status(401).json({ success: false, message: 'Invalid Paystack signature' });
+    if (!verifyIvoryPayWebhookSignature(rawBody, signature)) {
+      return res.status(401).json({ success: false, message: 'Invalid Ivory Pay signature' });
     }
 
     const event = JSON.parse(rawBody.toString('utf-8')) as {
       event?: string;
-      data?: PaystackEventData;
+      data?: IvoryPayEventData;
     };
 
     const reference = event.data?.reference;
     const eventKey = event.data?.id
-      ? `paystack:${event.data.id}`
-      : `paystack:${crypto.createHash('sha256').update(rawBody).digest('hex')}`;
+      ? `ivorypay:${event.data.id}`
+      : `ivorypay:${crypto.createHash('sha256').update(rawBody).digest('hex')}`;
 
     const existing = await PaymentEvent.findOne({ eventKey });
     if (existing?.processed) {
@@ -41,7 +41,7 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
       { eventKey },
       {
         $setOnInsert: {
-          provider: 'paystack',
+          provider: 'ivorypay',
           eventKey,
           reference,
           eventType: event.event || 'unknown',
@@ -51,7 +51,7 @@ export const handlePaystackWebhook = async (req: Request, res: Response) => {
       { upsert: true }
     );
 
-    if (event.event !== 'charge.success' || event.data?.status !== 'success' || !reference) {
+    if (event.event !== 'payment.success' || event.data?.status !== 'success' || !reference) {
       await PaymentEvent.updateOne({ eventKey }, { $set: { processed: true } });
       return res.status(200).json({ success: true, message: 'Event ignored' });
     }

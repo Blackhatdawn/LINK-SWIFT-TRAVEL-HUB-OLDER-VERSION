@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import RideBooking from '../models/RideBooking';
 import { createNotification } from './notificationController';
 import crypto from 'crypto';
-import { initializePaystackTransaction } from '../services/paystack';
+import { initializeIvoryPayTransaction } from '../services/ivorypay';
 
 // Helper: Calculate luxury fare based on car class
 const calculateFare = (carType: string): number => {
@@ -38,7 +38,7 @@ export const createRideBooking = async (req: Request, res: Response) => {
     // 1. Calculate Fare
     const fare = calculateFare(carType);
 
-    // 2. Generate Paystack Reference
+    // 2. Generate Ivory Pay Reference
     const paymentReference = `LS-RIDE-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
 
     // 3. Format addresses (handling both string and object inputs from frontend)
@@ -53,7 +53,7 @@ export const createRideBooking = async (req: Request, res: Response) => {
       date: rideDate,
       carType,
       fare,
-      status: 'Payment Required', // Requires Paystack confirmation
+      status: 'Payment Required', // Requires Ivory Pay confirmation
       paymentReference,
       stayBundle: stayBundleId || null,
       specialRequests
@@ -68,7 +68,7 @@ export const createRideBooking = async (req: Request, res: Response) => {
       booking._id.toString()
     );
 
-    const paymentInit = await initializePaystackTransaction({
+    const paymentInit = await initializeIvoryPayTransaction({
       email: req.user?.email,
       amount: fare * 100,
       reference: paymentReference,
@@ -80,12 +80,12 @@ export const createRideBooking = async (req: Request, res: Response) => {
       },
     });
 
-    // 6. Return Paystack initialization data
+    // 6. Return Ivory Pay initialization data
     res.status(201).json({ 
       success: true, 
       data: booking,
       payment: {
-        provider: 'Paystack',
+        provider: 'IvoryPay',
         reference: paymentReference,
         amount: fare * 100,
         authorization_url: paymentInit.authorization_url,

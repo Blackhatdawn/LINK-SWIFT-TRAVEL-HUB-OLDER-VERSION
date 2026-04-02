@@ -1,28 +1,36 @@
 import crypto from 'crypto';
 
-const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+const IVORYPAY_BASE_URL = 'https://api.ivorypay.io';
 
-const getPaystackSecretKey = () => {
-  const key = process.env.PAYSTACK_SECRET_KEY;
+const getIvoryPaySecretKey = () => {
+  const key = process.env.IVORYPAY_SECRET_KEY;
   if (!key) {
-    throw new Error('PAYSTACK_SECRET_KEY is required');
+    throw new Error('IVORYPAY_SECRET_KEY is required');
   }
   return key;
 };
 
-export const initializePaystackTransaction = async (params: {
+const getIvoryPayPublicKey = () => {
+  const key = process.env.IVORYPAY_PUBLIC_KEY;
+  if (!key) {
+    throw new Error('IVORYPAY_PUBLIC_KEY is required');
+  }
+  return key;
+};
+
+export const initializeIvoryPayTransaction = async (params: {
   email: string;
   amount: number;
   reference: string;
   metadata?: Record<string, unknown>;
   callback_url?: string;
 }) => {
-  const key = getPaystackSecretKey();
+  const publicKey = getIvoryPayPublicKey();
 
-  const response = await fetch(`${PAYSTACK_BASE_URL}/transaction/initialize`, {
+  const response = await fetch(`${IVORYPAY_BASE_URL}/transaction/initialize`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${key}`,
+      'x-api-key': publicKey,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -36,19 +44,19 @@ export const initializePaystackTransaction = async (params: {
 
   const payload = await response.json();
 
-  if (!response.ok || !payload?.status) {
-    throw new Error(payload?.message || 'Failed to initialize Paystack transaction');
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.message || 'Failed to initialize Ivory Pay transaction');
   }
 
   return payload.data;
 };
 
-export const verifyPaystackWebhookSignature = (rawBody: Buffer, signatureHeader?: string) => {
-  const key = getPaystackSecretKey();
+export const verifyIvoryPayWebhookSignature = (rawBody: Buffer, signatureHeader?: string) => {
+  const key = getIvoryPaySecretKey();
   if (!signatureHeader) return false;
 
   const hash = crypto
-    .createHmac('sha512', key)
+    .createHmac('sha256', key)
     .update(rawBody)
     .digest('hex');
 
