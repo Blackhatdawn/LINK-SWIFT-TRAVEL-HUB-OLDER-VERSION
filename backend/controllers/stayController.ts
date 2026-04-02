@@ -3,7 +3,7 @@ import Property from '../models/Property';
 import StayBooking from '../models/StayBooking';
 import { createNotification } from './notificationController';
 import crypto from 'crypto';
-import { initializePaystackTransaction } from '../services/paystack';
+import { initializeIvoryPayTransaction } from '../services/ivorypay';
 
 // @desc    Get all available properties (with search and Nigeria bounding box filter)
 // @route   GET /api/stays
@@ -58,7 +58,7 @@ export const getPropertyById = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Create a new stay booking (Paystack ready)
+// @desc    Create a new stay booking (Ivory Pay ready)
 // @route   POST /api/stays/book
 // @access  Private
 export const createStayBooking = async (req: Request, res: Response) => {
@@ -107,7 +107,7 @@ export const createStayBooking = async (req: Request, res: Response) => {
       checkIn: checkInDate,
       checkOut: checkOutDate,
       totalPrice,
-      status: 'Pending', // Status updates to 'Confirmed' via Paystack Webhook
+      status: 'Pending', // Status updates to 'Confirmed' via Ivory Pay Webhook
       paymentReference,
       chauffeurBundleIncluded
     });
@@ -121,7 +121,7 @@ export const createStayBooking = async (req: Request, res: Response) => {
       booking._id.toString()
     );
 
-    const paymentInit = await initializePaystackTransaction({
+    const paymentInit = await initializeIvoryPayTransaction({
       email: req.user?.email,
       amount: totalPrice * 100,
       reference: paymentReference,
@@ -137,7 +137,7 @@ export const createStayBooking = async (req: Request, res: Response) => {
       success: true,
       data: booking,
       payment: {
-        provider: 'Paystack',
+        provider: 'IvoryPay',
         reference: paymentReference,
         amount: totalPrice * 100,
         authorization_url: paymentInit.authorization_url,

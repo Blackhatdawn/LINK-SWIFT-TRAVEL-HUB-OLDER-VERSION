@@ -27,7 +27,7 @@
 5. Communicate ETA and status updates every 30 minutes.
 
 ## Payment operations
-- Ensure `PAYSTACK_SECRET_KEY` is rotated quarterly.
+- Ensure `IVORYPAY_PUBLIC_KEY` and `IVORYPAY_SECRET_KEY` are rotated quarterly.
 - Monitor duplicate webhook event count.
 - Reconciliation job should compare wallet/booking states against provider exports daily.
 

@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const paymentEventSchema = new mongoose.Schema(
   {
-    provider: { type: String, enum: ['paystack'], required: true },
+    provider: { type: String, enum: ['paystack', 'ivorypay'], required: true },
     eventKey: { type: String, required: true, unique: true },
     reference: { type: String, index: true },
     eventType: { type: String, required: true },

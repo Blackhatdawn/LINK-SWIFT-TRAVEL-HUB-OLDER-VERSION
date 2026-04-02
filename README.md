@@ -24,7 +24,7 @@ This repository contains a full-stack Vite + React + Express application.
 ## Production notes
 
 - `NODE_ENV=production` requires a valid `MONGO_URI`.
-- Set `PAYSTACK_SECRET_KEY` for payment initialization and webhook signature validation (required).
+- Set `IVORYPAY_PUBLIC_KEY` and `IVORYPAY_SECRET_KEY` for payment initialization and webhook signature validation (required).
 - Configure `CLIENT_ORIGINS` to trusted domains only.
 - Build the frontend before running in production:
   ```bash
@@ -41,10 +41,10 @@ This repository contains a full-stack Vite + React + Express application.
 
 ## Payments webhook
 
-Configure Paystack webhook URL to:
+Configure Ivory Pay webhook URL to:
 
 ```
-POST /api/payments/paystack/webhook
+POST /api/payments/ivorypay/webhook
 ```
 
 
@@ -64,7 +64,7 @@ POST /api/payments/paystack/webhook
 
 ### Payment return UI
 
-Set your Paystack callback URL to:
+Set your Ivory Pay callback URL to:
 
 ```
 ${APP_URL}/payment/return

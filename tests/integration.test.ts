@@ -9,14 +9,14 @@ import WalletAccount from '../backend/models/WalletAccount';
 import RideBooking from '../backend/models/RideBooking';
 import PaymentEvent from '../backend/models/PaymentEvent';
 import { payForService } from '../backend/controllers/walletController';
-import { handlePaystackWebhook } from '../backend/controllers/paymentController';
+import { handleIvoryPayWebhook } from '../backend/controllers/paymentController';
 
 let mongo: MongoMemoryServer;
 
 test.before(async () => {
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri());
-  process.env.PAYSTACK_SECRET_KEY = 'unit_test_secret';
+  process.env.IVORYPAY_SECRET_KEY = 'unit_test_secret';
 });
 
 test.after(async () => {
@@ -62,19 +62,19 @@ test('payment webhook confirms ride booking and stores event journal', async () 
   });
 
   const payload = {
-    event: 'charge.success',
-    data: { id: 12345, reference: 'LS-RIDE-TESTREF', status: 'success' },
+    event: 'payment.success',
+    data: { id: '12345', reference: 'LS-RIDE-TESTREF', status: 'success' },
   };
   const rawBody = Buffer.from(JSON.stringify(payload));
-  const signature = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY!).update(rawBody).digest('hex');
+  const signature = crypto.createHmac('sha256', process.env.IVORYPAY_SECRET_KEY!).update(rawBody).digest('hex');
 
   const req: any = {
-    headers: { 'x-paystack-signature': signature },
+    headers: { 'x-ivorypay-signature': signature },
     body: rawBody,
   };
   const res = mockRes();
 
-  await handlePaystackWebhook(req, res as any);
+  await handleIvoryPayWebhook(req, res as any);
 
   const refreshedRide = await RideBooking.findById(ride._id);
   const event = await PaymentEvent.findOne({ reference: 'LS-RIDE-TESTREF' });

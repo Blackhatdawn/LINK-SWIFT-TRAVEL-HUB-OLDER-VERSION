@@ -1,19 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'crypto';
-import { verifyPaystackWebhookSignature } from '../backend/services/paystack';
+import { verifyIvoryPayWebhookSignature } from '../backend/services/ivorypay';
 
-test('verifyPaystackWebhookSignature returns true for valid signature', () => {
-  process.env.PAYSTACK_SECRET_KEY = 'unit_test_secret';
-  const rawBody = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: 'LS-RIDE-TEST' } }));
-  const signature = crypto.createHmac('sha512', process.env.PAYSTACK_SECRET_KEY!).update(rawBody).digest('hex');
+test('verifyIvoryPayWebhookSignature returns true for valid signature', () => {
+  process.env.IVORYPAY_SECRET_KEY = 'unit_test_secret';
+  const rawBody = Buffer.from(JSON.stringify({ event: 'payment.success', data: { reference: 'LS-RIDE-TEST' } }));
+  const signature = crypto.createHmac('sha256', process.env.IVORYPAY_SECRET_KEY!).update(rawBody).digest('hex');
 
-  assert.equal(verifyPaystackWebhookSignature(rawBody, signature), true);
+  assert.equal(verifyIvoryPayWebhookSignature(rawBody, signature), true);
 });
 
-test('verifyPaystackWebhookSignature returns false for invalid signature', () => {
-  process.env.PAYSTACK_SECRET_KEY = 'unit_test_secret';
-  const rawBody = Buffer.from(JSON.stringify({ event: 'charge.success', data: { reference: 'LS-RIDE-TEST' } }));
+test('verifyIvoryPayWebhookSignature returns false for invalid signature', () => {
+  process.env.IVORYPAY_SECRET_KEY = 'unit_test_secret';
+  const rawBody = Buffer.from(JSON.stringify({ event: 'payment.success', data: { reference: 'LS-RIDE-TEST' } }));
 
-  assert.equal(verifyPaystackWebhookSignature(rawBody, 'invalid-signature'), false);
+  assert.equal(verifyIvoryPayWebhookSignature(rawBody, 'invalid-signature'), false);
 });

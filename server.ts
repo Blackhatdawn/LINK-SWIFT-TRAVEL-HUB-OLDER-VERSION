@@ -55,7 +55,7 @@ async function startServer() {
     return next();
   });
 
-  app.use('/api/payments/paystack/webhook', express.raw({ type: 'application/json' }));
+  app.use('/api/payments/ivorypay/webhook', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '1mb' }));
 
   try {
